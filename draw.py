@@ -1,237 +1,185 @@
 #!/usr/bin/env python3
-"""Draw entry.png — one image summing up the world news of Thursday 19 November 2026.
+"""Draw the v2 news-image entry: one 1024x1024 editorial infographic
+summarising world news on Thursday, 19 November 2026.
 
-Editorial newspaper-style infographic, 1024x1024 PNG. All text is rendered by
-this script (PIL), so every label stays sharp and readable. Run:
-    python3 draw.py
-which writes entry.png next to this file.
+Deterministic: no randomness, no timestamps, no network. Running this
+script twice produces byte-identical output.
+
+Usage: python3 draw.py   (writes entry.png next to this script)
 """
+
 import os
+import textwrap
+
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "entry.png")
 
+# ---------------------------------------------------------------- canvas
 W, H = 1024, 1024
-BG = (250, 246, 236)          # warm paper cream
-PANEL = (255, 255, 255)       # white panels
-INK = (20, 33, 61)            # dark navy text
-MUTED = (70, 80, 100)         # grey-blue body text
-RULE = (180, 170, 150)        # hairline rule
-RED = (180, 35, 24)           # masthead date red
-BORDER = (215, 205, 185)      # panel border
+BG = (253, 251, 245)          # warm paper white
+INK = (17, 17, 17)            # near-black
+RED = (178, 34, 34)           # editorial red for the date / kickers
+GREY = (85, 85, 85)           # secondary text
+LINE = (200, 196, 188)        # hairline separators
+MARGIN = 48
+CONTENT_W = W - 2 * MARGIN    # 928
 
-FONT_REG = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-
-
-def font(path, size):
-    return ImageFont.truetype(path, size)
+# ---------------------------------------------------------------- fonts
+FONT_DIR = "/usr/share/fonts/truetype/dejavu"
+F_BOLD = os.path.join(FONT_DIR, "DejaVuSans-Bold.ttf")
+F_REG = os.path.join(FONT_DIR, "DejaVuSans.ttf")
 
 
-def wrap(draw, text, fnt, max_w):
-    """Split text into lines that fit max_w pixels."""
-    words = text.split()
-    lines, cur = [], ""
-    for word in words:
-        trial = (cur + " " + word).strip()
-        if draw.textlength(trial, font=fnt) <= max_w:
-            cur = trial
-        else:
-            if cur:
+def font(bold, size):
+    return ImageFont.truetype(F_BOLD if bold else F_REG, size)
+
+
+# ---------------------------------------------------------------- helpers
+def wrap(text, fnt, max_width, draw):
+    """Greedy word wrap; returns a list of lines that fit max_width."""
+    lines = []
+    for paragraph in text.split("\n"):
+        words = paragraph.split()
+        if not words:
+            lines.append("")
+            continue
+        cur = words[0]
+        for word in words[1:]:
+            trial = cur + " " + word
+            if draw.textlength(trial, font=fnt) <= max_width:
+                cur = trial
+            else:
                 lines.append(cur)
-            cur = word
-    if cur:
+                cur = word
         lines.append(cur)
     return lines
 
 
-def draw_icon_hero(d, cx, cy):
-    """Three meeting circles: US (navy), China (red), Russia (dark teal)."""
-    r = 34
-    offs = [(-78, -18, (30, 60, 140), "US"),
-            (0, -34, (180, 35, 24), "CN"),
-            (78, -18, (20, 90, 90), "RU")]
-    for dx, dy, col, lab in offs:
-        d.ellipse([cx + dx - r, cy + dy - r, cx + dx + r, cy + dy + r],
-                  fill=col, outline=(255, 255, 255), width=3)
-        f = font(FONT_BOLD, 20)
-        tw = d.textlength(lab, font=f)
-        d.text((cx + dx - tw / 2, cy + dy - 11), lab, font=f, fill=(255, 255, 255))
-    # table line under the three circles
-    d.line([(cx - 118, cy + 52), (cx + 118, cy + 52)], fill=INK, width=5)
-    d.line([(cx - 118, cy + 52), (cx - 118, cy + 66)], fill=INK, width=5)
-    d.line([(cx + 118, cy + 52), (cx + 118, cy + 66)], fill=INK, width=5)
+def draw_lines(draw, lines, fnt, x, y, line_height, fill, align="left",
+               max_width=None):
+    """Draw lines top-to-bottom; returns the y just below the last line."""
+    for line in lines:
+        if align == "center" and max_width is not None:
+            lx = x + (max_width - draw.textlength(line, font=fnt)) / 2
+        else:
+            lx = x
+        draw.text((lx, y), line, font=fnt, fill=fill)
+        y += line_height
+    return y
 
 
-def draw_icon_burst(d, cx, cy, col):
-    """Explosion burst: orange star + smoke dots (US-Iran strikes)."""
-    import math
-    pts = []
-    for i in range(16):
-        ang = math.pi * i / 8
-        rad = 46 if i % 2 == 0 else 20
-        pts.append((cx + rad * math.cos(ang), cy + rad * math.sin(ang)))
-    d.polygon(pts, fill=col)
-    d.ellipse([cx - 10, cy - 10, cx + 10, cy + 10], fill=(255, 220, 120))
+def hline(draw, y, x0, x1, width=1, fill=INK):
+    draw.line([(x0, y), (x1, y)], fill=fill, width=width)
 
 
-def draw_icon_probe(d, cx, cy):
-    """Voyager probe: dish + body + signal arcs, on a star."""
-    d.ellipse([cx - 46, cy - 46, cx + 46, cy + 46], fill=(235, 225, 255))
-    d.polygon([(cx - 30, cy + 8), (cx + 30, cy + 8), (cx, cy - 34)], fill=(90, 70, 160))
-    d.rectangle([cx - 12, cy + 6, cx + 12, cy + 26], fill=(60, 50, 110))
-    d.line([(cx - 34, cy - 40), (cx - 22, cy - 28)], fill=(90, 70, 160), width=3)
-    d.line([(cx + 34, cy - 40), (cx + 22, cy - 28)], fill=(90, 70, 160), width=3)
-    for r in (52, 62):
-        d.arc([cx - r, cy - r, cx + r, cy + r], start=300, end=360, fill=(90, 70, 160), width=3)
+def vline(draw, x, y0, y1, width=1, fill=LINE):
+    draw.line([(x, y0), (x, y1)], fill=fill, width=width)
 
 
-def draw_icon_chart(d, cx, cy, col):
-    """Rising bars + dollar sign (IPO)."""
-    bars = [22, 38, 56]
-    x0 = cx - 48
-    for i, bh in enumerate(bars):
-        d.rectangle([x0 + i * 34, cy + 30 - bh, x0 + i * 34 + 24, cy + 30], fill=col)
-    d.line([(cx - 54, cy + 40), (cx + 54, cy + 40)], fill=INK, width=4)
-    f = font(FONT_BOLD, 34)
-    d.text((cx + 8, cy - 62), "$", font=f, fill=(20, 120, 80))
+# ---------------------------------------------------------------- content
+MASTHEAD = "WORLD NEWS"
+DATE_LINE = "THURSDAY, 19 NOVEMBER 2026"
+SUBTITLE = "Seven stories that defined the day"
+
+HERO_HEAD = "TRUMP, XI & PUTIN MEET IN SHENZHEN"
+HERO_SUB = ("First three-way summit of the US, China and Russia leaders, "
+            "on APEC sidelines; nuclear arms control on the agenda.")
+
+# (headline, sub) for stories 2-7, in reading order.
+STORIES = [
+    ("UKRAINE HITS CRIMEAN BRIDGE AGAIN",
+     "Third strike on the crossing in a week; traffic halted as damage "
+     "is assessed."),
+    ("US\u2013IRAN FIRE SPREADS IN THE GULF",
+     "US struck missile sites on Qeshm Island; Iran widened attacks on "
+     "US bases in Kuwait and Bahrain."),
+    ("JEFFRIES SET TO BE FIRST BLACK HOUSE SPEAKER",
+     "Democrat Hakeem Jeffries nominated to lead the US House \u2014 a "
+     "first for an African-American."),
+    ("ANTHROPIC\u2019S $81.3BN IPO \u2014 BIGGEST EVER",
+     "Claude-maker\u2019s stock market debut raises a record amount."),
+    ("VOYAGER 1 REACHES ONE LIGHT-DAY",
+     "NASA probe, ~50 years after launch, becomes the first human object "
+     "a light-day from Earth."),
+    ("EU APPROVES INDONESIA TRADE PACT",
+     "EU Council greenlights deal to cut tariffs and counter US trade "
+     "pressure."),
+]
+
+FOOTER = "WORLD NEWS  \u2022  THURSDAY, 19 NOVEMBER 2026"
 
 
-def draw_icon_eu(d, cx, cy):
-    """EU circle of stars + coin (Ukraine loan)."""
-    import math
-    d.ellipse([cx - 48, cy - 48, cx + 48, cy + 48], fill=(30, 60, 140))
-    for i in range(12):
-        ang = 2 * math.pi * i / 12 - math.pi / 2
-        sx = cx + 34 * math.cos(ang)
-        sy = cy + 34 * math.sin(ang)
-        d.ellipse([sx - 4, sy - 4, sx + 4, sy + 4], fill=(255, 215, 0))
-    f = font(FONT_BOLD, 26)
-    d.text((cx - 9, cy - 14), "€", font=f, fill=(255, 255, 255))
-
-
-def draw_icon_city(d, cx, cy):
-    """Vice City skyline + sun (GTA VI)."""
-    d.ellipse([cx + 22, cy - 44, cx + 54, cy - 12], fill=(255, 170, 60))
-    heights = [44, 66, 38, 58, 48]
-    x0 = cx - 56
-    for i, bh in enumerate(heights):
-        d.rectangle([x0 + i * 24, cy + 30 - bh, x0 + i * 24 + 18, cy + 30],
-                    fill=(200, 60, 120) if i % 2 else (90, 40, 130))
-    d.line([(cx - 58, cy + 30), (cx + 58, cy + 30)], fill=INK, width=4)
-
-
-def panel(d, x, y, w, h, accent, tag, title, summary, icon, title_size=24,
-          sum_size=18, icon_box=120):
-    """One story panel: accent top bar, tag, bold title, summary, icon at right."""
-    d.rectangle([x, y, x + w, y + h], fill=PANEL, outline=BORDER, width=2)
-    d.rectangle([x, y, x + w, y + 8], fill=accent)
-    tx = x + 16
-    ty = y + 20
-    f_tag = font(FONT_BOLD, 15)
-    d.text((tx, ty), tag, font=f_tag, fill=accent)
-    ty += 24
-    text_w = w - 32 - icon_box
-    f_title = font(FONT_BOLD, title_size)
-    for line in wrap(d, title, f_title, text_w):
-        d.text((tx, ty), line, font=f_title, fill=INK)
-        ty += title_size + 4
-    ty += 4
-    f_sum = font(FONT_REG, sum_size)
-    for line in wrap(d, summary, f_sum, text_w):
-        d.text((tx, ty), line, font=f_sum, fill=MUTED)
-        ty += sum_size + 5
-    icon(d, x + w - icon_box // 2 - 8, y + h // 2 + 6)
-
-
+# ---------------------------------------------------------------- draw
 def main():
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
 
-    # ---- Masthead ----
-    f_mast = font(FONT_BOLD, 62)
-    mast = "WORLD NEWS"
-    tw = d.textlength(mast, font=f_mast)
-    d.text(((W - tw) / 2, 22), mast, font=f_mast, fill=INK)
-    f_date = font(FONT_BOLD, 34)
-    date = "THURSDAY, 19 NOVEMBER 2026"
-    tw = d.textlength(date, font=f_date)
-    d.text(((W - tw) / 2, 92), date, font=f_date, fill=RED)
-    d.line([(24, 132), (W - 24, 132)], fill=RULE, width=3)
-    f_sub = font(FONT_REG, 17)
-    sub = "Six stories that defined the day — across every region and every field"
-    tw = d.textlength(sub, font=f_sub)
-    d.text(((W - tw) / 2, 138), sub, font=f_sub, fill=MUTED)
+    # ---- masthead ------------------------------------------------------
+    y = 34
+    f_mast = font(True, 74)
+    y = draw_lines(d, [MASTHEAD], f_mast, MARGIN, y, 84, INK,
+                   align="center", max_width=CONTENT_W)
+    f_date = font(True, 34)
+    y = draw_lines(d, [DATE_LINE], f_date, MARGIN, y + 2, 44, RED,
+                   align="center", max_width=CONTENT_W)
+    f_sub = font(False, 22)
+    y = draw_lines(d, [SUBTITLE], f_sub, MARGIN, y + 6, 30, GREY,
+                   align="center", max_width=CONTENT_W)
 
-    # ---- Hero story (1): Trump, Xi & Putin ----
-    hx, hy, hw, hh = 24, 164, W - 48, 196
-    d.rectangle([hx, hy, hx + hw, hy + hh], fill=PANEL, outline=BORDER, width=2)
-    d.rectangle([hx, hy, hx + hw, hy + 8], fill=(20, 33, 61))
-    f_tag = font(FONT_BOLD, 15)
-    d.text((hx + 18, hy + 18), "GEOPOLITICS  •  HERO STORY", font=f_tag, fill=(20, 33, 61))
-    f_t = font(FONT_BOLD, 30)
-    ty = hy + 42
-    for line in wrap(d, "TRUMP, XI & PUTIN MEET IN SHENZHEN", f_t, 600):
-        d.text((hx + 18, ty), line, font=f_t, fill=INK)
-        ty += 34
-    f_s = font(FONT_REG, 19)
-    ty += 4
-    for line in wrap(d, "Leaders of the US, China and Russia hold a trilateral meeting "
-                      "on the sidelines of the APEC summit in Shenzhen.", f_s, 600):
-        d.text((hx + 18, ty), line, font=f_s, fill=MUTED)
-        ty += 24
-    draw_icon_hero(d, hx + hw - 150, hy + hh // 2 - 6)
+    # double rule under the masthead
+    y = 214
+    hline(d, y, MARGIN, W - MARGIN, width=3)
+    hline(d, y + 7, MARGIN, W - MARGIN, width=1)
 
-    # ---- Grid of the other five stories ----
-    gx, gy = 24, 374
-    col_w = (W - 48 - 16) // 2
-    row_h = 196
-    gap = 14
-    stories = [
-        ((200, 60, 30), "MIDDLE EAST",
-         "US–IRAN FIRE SPREADS IN THE GULF",
-         "The US strikes Iranian missile sites on Qeshm Island; Iran widens "
-         "attacks on US bases in Kuwait and Bahrain.",
-         lambda dd, cx, cy: draw_icon_burst(dd, cx, cy, (230, 90, 30))),
-        ((90, 70, 160), "SCIENCE",
-         "VOYAGER 1 REACHES ONE LIGHT-DAY",
-         "After ~50 years in space, NASA's Voyager 1 becomes the first "
-         "human-made object one light-day from Earth.",
-         draw_icon_probe),
-        ((20, 120, 80), "TECHNOLOGY",
-         "ANTHROPIC'S $81.3BN IPO — BIGGEST EVER",
-         "The maker of Claude raises $81.3 billion in the largest IPO "
-         "in history.",
-         lambda dd, cx, cy: draw_icon_chart(dd, cx, cy, (20, 120, 80))),
-        ((30, 60, 140), "EUROPE",
-         "EU PROPOSES €45BN UKRAINE LOAN",
-         "The European Union proposes a €45 billion loan for Ukraine, "
-         "repaid after Russia pays reparations.",
-         draw_icon_eu),
-    ]
-    for i, (accent, tag, title, summary, icon) in enumerate(stories):
-        r, c = divmod(i, 2)
-        x = gx + c * (col_w + 16)
-        y = gy + r * (row_h + gap)
-        panel(d, x, y, col_w, row_h, accent, tag, title, summary, icon)
+    # ---- hero ----------------------------------------------------------
+    y = 240
+    f_kick = font(True, 18)
+    y = draw_lines(d, ["TOP STORY"], f_kick, MARGIN, y, 24, RED)
+    f_hero = font(True, 46)
+    hero_lines = wrap(HERO_HEAD, f_hero, CONTENT_W, d)
+    y = draw_lines(d, hero_lines, f_hero, MARGIN, y + 6, 56, INK)
+    f_hero_sub = font(False, 22)
+    hero_sub_lines = wrap(HERO_SUB, f_hero_sub, CONTENT_W, d)
+    y = draw_lines(d, hero_sub_lines, f_hero_sub, MARGIN, y + 8, 30, GREY)
 
-    # ---- Story 6: full-width bottom row ----
-    y6 = gy + 2 * (row_h + gap)
-    panel(d, gx, y6, W - 48, row_h, (200, 60, 120), "CULTURE",
-          "GTA VI ROLLS OUT WORLDWIDE",
-          "Grand Theft Auto VI begins its global release as players return to "
-          "Vice City after a 13-year wait.",
-          draw_icon_city, title_size=26, sum_size=19, icon_box=150)
+    # rule under the hero
+    hline(d, 446, MARGIN, W - MARGIN, width=2)
 
-    # ---- Footer ----
-    f_f = font(FONT_REG, 14)
-    foot = "19 NOVEMBER 2026  •  Stories as reported on the day  •  One day's world news in one image"
-    tw = d.textlength(foot, font=f_f)
-    d.text(((W - tw) / 2, H - 26), foot, font=f_f, fill=MUTED)
+    # ---- grid: 2 rows x 3 columns --------------------------------------
+    grid_top = 468
+    row_h = 246
+    gutter = 24
+    col_w = (CONTENT_W - 2 * gutter) // 3  # 293
+    f_head = font(True, 23)
+    f_cell_sub = font(False, 16)
 
-    img.save(OUT, "PNG", optimize=True)
-    print("wrote", OUT, img.size, os.path.getsize(OUT), "bytes")
+    for idx, (head, sub) in enumerate(STORIES):
+        row, col = divmod(idx, 3)
+        x = MARGIN + col * (col_w + gutter)
+        top = grid_top + row * row_h
+
+        head_lines = wrap(head, f_head, col_w, d)
+        cy = draw_lines(d, head_lines, f_head, x, top, 29, INK)
+        sub_lines = wrap(sub, f_cell_sub, col_w, d)
+        draw_lines(d, sub_lines, f_cell_sub, x, cy + 8, 21, GREY)
+
+    # vertical separators between columns
+    for col in (1, 2):
+        x = MARGIN + col * col_w + (col - 1) * gutter + gutter // 2
+        vline(d, x, grid_top, grid_top + 2 * row_h - 12)
+    # horizontal separator between the two rows
+    hline(d, grid_top + row_h - 8, MARGIN, W - MARGIN, width=1, fill=LINE)
+
+    # ---- footer ---------------------------------------------------------
+    hline(d, 986, MARGIN, W - MARGIN, width=2)
+    f_foot = font(True, 15)
+    draw_lines(d, [FOOTER], f_foot, MARGIN, 996, 20, GREY,
+               align="center", max_width=CONTENT_W)
+
+    out = os.path.join(HERE, "entry.png")
+    img.save(out, format="PNG")
+    print("wrote", out, os.path.getsize(out), "bytes")
 
 
 if __name__ == "__main__":

@@ -1,45 +1,32 @@
-# World News — Thursday, 19 November 2026
+[![make.fun](https://make.fun/badge/news-image-20261119.svg)](https://make.fun/bounty/news-image-20261119)
+[![Rank](https://make.fun/badge/news-image-20261119/runtuhjiwa/news-image-20261119/rank.svg)](https://make.fun/bounty/news-image-20261119)
+[![Reward](https://make.fun/badge/news-image-20261119/runtuhjiwa/news-image-20261119/reward.svg)](https://make.fun/bounty/news-image-20261119)
 
-[![make.fun · news-image-20261119](https://make.fun/badge/news-image-20261119.svg)](https://make.fun/bounty/news-image-20261119?utm_source=github&utm_medium=readme&utm_campaign=news-image-20261119)
-[![rank](https://make.fun/badge/news-image-20261119/runtuhjiwa/news-image-20261119/rank.svg)](https://make.fun/bounty/news-image-20261119/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=news-image-20261119)
-[![reward](https://make.fun/badge/news-image-20261119/runtuhjiwa/news-image-20261119/reward.svg)](https://make.fun/bounty/news-image-20261119?utm_source=github&utm_medium=readme&utm_campaign=news-image-20261119)
+# World News — Thursday, 19 November 2026 (v2)
 
-One image that sums up the world's news of Thursday, 19 November 2026.
-An editorial infographic: a masthead naming the day, one hero story, and
-five more stories across regions and fields — geopolitics, the Middle East,
-science, technology, Europe, and culture.
+One editorial infographic that sums up the world news of **Thursday, 19 November 2026** in a single 1024×1024 image.
 
-## The six stories
+The v2 image covers seven stories that defined the day: the Trump–Xi–Putin three-way summit in Shenzhen, Ukraine's strike on the Crimean Bridge, US–Iran fire spreading in the Gulf, Hakeem Jeffries set to become the first Black Speaker of the US House, Anthropic's record $81.3bn IPO, Voyager 1 reaching one light-day from Earth, and the EU approving the Indonesia trade pact.
 
-1. **Trump, Xi & Putin meet in Shenzhen** — leaders of the US, China and
-   Russia hold a trilateral meeting on the sidelines of the APEC summit.
-2. **US–Iran fire spreads in the Gulf** — the US strikes Iranian missile
-   sites on Qeshm Island; Iran widens attacks on US bases in Kuwait and
-   Bahrain.
-3. **Voyager 1 reaches one light-day** — after ~50 years in space, NASA's
-   Voyager 1 becomes the first human-made object one light-day from Earth.
-4. **Anthropic's $81.3bn IPO, biggest ever** — the maker of Claude raises
-   $81.3 billion in the largest IPO in history.
-5. **EU proposes a €45bn Ukraine loan** — the European Union proposes a
-   €45 billion loan for Ukraine, repaid after Russia pays reparations.
-6. **GTA VI rolls out worldwide** — Grand Theft Auto VI begins its global
-   release as players return to Vice City after a 13-year wait.
+The image is drawn programmatically with Python (PIL, DejaVu Sans), so every headline is crisp and the output is fully deterministic — two runs produce byte-identical files.
 
-## How it is built
+## Files
 
-- `draw.py` draws `entry.png` (1024×1024, PNG) with Python and Pillow:
-  every label is rendered by code, so the text stays sharp and legible.
-- `main.ts` (Node, standard library only) copies `entry.png` next to it
-  to `/output/entry.png`, verifying the PNG magic bytes, the 1 MiB limit,
-  and that the copy is byte-identical to the source.
+- `entry.png` — the 1024×1024 PNG infographic (the entry image).
+- `draw.py` — the Python script that draws `entry.png` from scratch.
+- `main.ts` — the entry program: copies `entry.png` to the output directory, verifying PNG magic bytes, the 1 MiB size limit, and SHA-256 byte identity.
 
-## Run it
+## How to run
 
 ```sh
-python3 draw.py            # redraw entry.png
-mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts   # write out/entry.png
+# Regenerate the image (optional — entry.png is already in this repo)
+python3 draw.py
+
+# Produce the entry output
+node main.ts
+# writes entry.png to $MAKEFUN_OUTPUT_DIR, or /output when unset
 ```
 
-Entry for the make.fun competition
-[news-image-20261119](https://make.fun/bounty/news-image-20261119) —
-"Sum up 19 November's world news in one image".
+## License
+
+MIT — see `LICENSE`.
