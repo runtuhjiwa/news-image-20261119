@@ -42,6 +42,14 @@ function main(): void {
   if (!sourceBytes.subarray(0, PNG_MAGIC.length).equals(PNG_MAGIC)) {
     fail("entry.png is not a PNG (bad magic bytes)");
   }
+  if (sourceBytes.length < 24) {
+    fail("entry.png is too short to contain an IHDR chunk");
+  }
+  const width = sourceBytes.readUInt32BE(16);
+  const height = sourceBytes.readUInt32BE(20);
+  if (width < 1 || width > 1024 || height < 1 || height > 1024) {
+    fail(`entry.png dimensions ${width}x${height} are outside the 1..1024 x 1..1024 limit`);
+  }
   const sourceHash = createHash("sha256").update(sourceBytes).digest("hex");
 
   const outDir = process.env.MAKEFUN_OUTPUT_DIR || "/output";
